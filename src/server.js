@@ -18,7 +18,13 @@ const connection = new Pool ({
 });
 
 server.get("/categories", async (req, res) => {
-    console.log('working')
+    try {
+        const result = await connection.query("SELECT * FROM categories");
+        res.send(result.rows);
+    } catch(err) {
+        console.log(err.message);
+        return res.sendStatus(500);
+    }
 });
 
 server.post("/categories", async (req, res) => {

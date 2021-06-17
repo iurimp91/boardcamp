@@ -28,14 +28,19 @@ server.get("/categories", async (req, res) => {
 });
 
 server.post("/categories", async (req, res) => {
-    let name = "";
     const categoriesSchema = joi.object({
         name: joi.string().min(3).max(30).trim().required()
     });
 
     try {
         const value = await categoriesSchema.validateAsync(req.body);
-        name = value.name;
+        const { name } = value;
+        const result = await connection.query("SELECT * FROM categories WHERE name = $1", [name]);
+        if(result.rows[0]) {
+            return res.sendStatus(409);
+        }
+        await connection.query("INSERT INTO categories (name) VALUES ($1)", [name]);
+        res.sendStatus(201);
     } catch(err) {
         if(err.message === '"name" is not allowed to be empty') {
             console.log(err.message);
@@ -45,24 +50,28 @@ server.post("/categories", async (req, res) => {
             return res.sendStatus(500);
         }
     }
+});
+
+server.get("/games", async (req, res) => {
+
+});
+
+server.post("/games", async (req, res) => {
+    const gamesSchema = joi.object({
+        name: joi.string().min(3).max(30).trim().required(),
+        image: joi.string().uri().pattern(/^http([^\s]+(?=\.(jpg|gif|png))\.\2)/).required(),
+        stockTotal: joi.number().integer().min(1).required(),
+        categoryId: joi.number().integer().min(1).required(),
+        pricePerDay: joi.number().integer().min(100).required(),
+    });
 
     try {
-        const result = await connection.query("SELECT * FROM categories WHERE name = $1", [name]);
-        if(result.rows[0]) {
-            return res.sendStatus(409);
-        }
-    } catch(err) {
-        console.log(err.message);
-        return res.sendStatus(500);
-    }
-
-    try {
-        const query = "INSERT INTO categories (name) VALUES ($1)";
-        await connection.query(query, [name]);
+        const value = await gamesSchema.validateAsync(req.body);
+        console.log("ok");
         res.sendStatus(201);
     } catch(err) {
         console.log(err.message);
-        return res.sendStatus(500);
+        res.sendStatus(500);
     }
 });
 

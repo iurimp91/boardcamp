@@ -53,7 +53,13 @@ server.post("/categories", async (req, res) => {
 });
 
 server.get("/games", async (req, res) => {
-
+    try {
+        const result = await connection.query("SELECT * FROM games");
+        res.send(result.rows);
+    } catch(err) {
+        console.log(err.message);
+        return res.sendStatus(500);
+    }
 });
 
 server.post("/games", async (req, res) => {

@@ -53,13 +53,29 @@ server.post("/categories", async (req, res) => {
 });
 
 server.get("/games", async (req, res) => {
-    try {
-        const result = await connection.query("SELECT * FROM games");
-        res.send(result.rows);
-    } catch(err) {
-        console.log(err.message);
-        return res.sendStatus(500);
-    }
+    const { name } = req.query;
+
+    if(name === undefined) {
+        try {
+            const result = await connection.query("SELECT * FROM games");
+            res.send(result.rows);
+        } catch(err) {
+            console.log(err.message);
+            return res.sendStatus(500);
+        }
+    } else {
+        try {
+            const result = await connection.query("SELECT * FROM games WHERE name iLIKE ($1 || '%')", [name]);
+            if(result.rows.length === 0) {
+                res.sendStatus(404);
+            } else {
+                res.send(result.rows);
+            }
+        } catch(err) {
+            console.log(err.message);
+            return res.sendStatus(500);
+        }
+    }  
 });
 
 server.post("/games", async (req, res) => {

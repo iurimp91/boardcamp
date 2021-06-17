@@ -57,21 +57,45 @@ server.get("/games", async (req, res) => {
 });
 
 server.post("/games", async (req, res) => {
+    const result = await connection.query("SELECT id FROM categories");
+    const categoriesIds = result.rows.map(item => item.id);
+
     const gamesSchema = joi.object({
         name: joi.string().min(3).max(30).trim().required(),
         image: joi.string().uri().pattern(/^http([^\s]+(?=\.(jpg|gif|png))\.\2)/).required(),
         stockTotal: joi.number().integer().min(1).required(),
         categoryId: joi.number().integer().min(1).required(),
-        pricePerDay: joi.number().integer().min(100).required(),
+        pricePerDay: joi.number().integer().min(1).required(),
     });
 
     try {
         const value = await gamesSchema.validateAsync(req.body);
-        console.log("ok");
+        const { name, image, stockTotal, categoryId, pricePerDay } = req.body;
+        const result = await connection.query("SELECT * FROM games WHERE name = $1", [name]);
+
+        if(result.rows[0]) {
+            return res.sendStatus(409);
+        }
+
+        if(!categoriesIds.includes(categoryId)) {
+            console.log('"categoryId" must be an existing category');
+            return res.sendStatus(400);
+        }
+        await connection.query('INSERT INTO games (name, image, "stockTotal", "categoryId", "pricePerDay") VALUES ($1, $2, $3, $4, $5)', [name, image, stockTotal, categoryId, pricePerDay]);
         res.sendStatus(201);
     } catch(err) {
+        if(err.message === '"name" is not allowed to be empty') {
+            console.log(err.message);
+            return res.sendStatus(400);
+        } else if(err.message === '"stockTotal" must be greater than or equal to 1') {
+            console.log(err.message);
+            return res.sendStatus(400);
+        } else if(err.message === '"pricePerDay" must be greater than or equal to 1') {
+            console.log(err.message);
+            return res.sendStatus(400);
+        }
         console.log(err.message);
-        res.sendStatus(500);
+        return res.sendStatus(500);
     }
 });
 

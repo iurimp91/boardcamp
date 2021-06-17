@@ -1,11 +1,14 @@
 import express from "express";
 import cors from "cors";
 import pg from "pg";
-import joi from "joi";
+import BaseJoi from "joi";
+import JoiDate from "@hapi/joi-date";
 
 const server = express();
 server.use(cors());
 server.use(express.json());
+
+const joi = BaseJoi.extend(JoiDate);
 
 const { Pool } = pg;
 
@@ -57,7 +60,11 @@ server.get("/games", async (req, res) => {
 
     if(name === undefined) {
         try {
-            const result = await connection.query("SELECT * FROM games");
+            const result = await connection.query(`
+                SELECT games.*, categories.name AS "categoryName"
+                FROM games JOIN categories
+                ON categories.id = games."categoryId"
+            `);
             res.send(result.rows);
         } catch(err) {
             console.log(err.message);
@@ -65,7 +72,13 @@ server.get("/games", async (req, res) => {
         }
     } else {
         try {
-            const result = await connection.query("SELECT * FROM games WHERE name iLIKE ($1 || '%')", [name]);
+            const result = await connection.query(`
+                SELECT games.*, categories.name AS "categoryName"
+                FROM games JOIN categories
+                ON categories.id = games."categoryId"
+                WHERE games.name iLIKE ($1 || '%')
+            `, [name]);
+
             if(result.rows.length === 0) {
                 res.sendStatus(404);
             } else {
@@ -119,6 +132,56 @@ server.post("/games", async (req, res) => {
         console.log(err.message);
         return res.sendStatus(500);
     }
+});
+
+server.get("/customers", async (req, res) => {
+
+});
+
+server.get("/customers/:id", async (req, res) => {
+
+});
+
+server.post("/customers", async (req, res) => {
+    const customersSchema = joi.object({
+        name: joi.string().min(3).max(30).trim().required(),
+        phone: joi.string().min(10).max(11).pattern(/^[0-9]{10,11}$/).required(),
+        cpf: joi.string().length(11).pattern(/^[0-9]{11}$/).required(),
+        birthday: joi.date().format('YYYY-MM-DD').required(),
+    });
+
+    try {
+        const value = await customersSchema.validateAsync(req.body);
+        const { name, phone, cpf, birthday } = req.body;
+        const result = await connection.query("SELECT * FROM customers WHERE cpf = $1", [cpf]);
+
+        if(result.rows[0]) {
+            return res.sendStatus(409);
+        }
+
+        await connection.query(`
+            INSERT INTO customers (name, phone, cpf, birthday) VALUES ($1, $2, $3, $4)`,
+            [name, phone, cpf, birthday]
+        );
+        res.sendStatus(201);
+    } catch(err) {
+        if(
+            err.message.includes("name")
+            || err.message.includes("phone")
+            || err.message.includes("cpf")
+            || err.message.includes("birthday")
+        ) {
+            console.log(err.message);
+            return res.sendStatus(400);
+        }else {
+            console.log(err.message);
+            return res.sendStatus(500);
+        }
+    }
+});
+
+server.put("/customers/:id", async (req, res) => {
+
 });
 
 server.listen(4000, () => {

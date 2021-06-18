@@ -229,7 +229,53 @@ server.post("/customers", async (req, res) => {
 });
 
 server.put("/customers/:id", async (req, res) => {
+    const customersSchema = joi.object({
+        name: joi.string().min(3).max(30).trim().required(),
+        phone: joi.string().min(10).max(11).pattern(/^[0-9]{10,11}$/).required(),
+        cpf: joi.string().length(11).pattern(/^[0-9]{11}$/).required(),
+        birthday: joi.date().format('YYYY-MM-DD').required(),
+    });
 
+    const id = parseInt(req.params.id);
+
+    try {
+        const value = await customersSchema.validateAsync(req.body);
+        const { name, phone, cpf, birthday } = req.body;
+        const cpfResult = await connection.query("SELECT * FROM customers WHERE cpf = $1", [cpf]);
+
+        if(cpfResult.rows[0]) {
+            return res.sendStatus(409);
+        }
+
+        const idResult = await connection.query(`SELECT * FROM customers WHERE id=$1`, [id]);
+
+        if(idResult.rows.length === 0) {
+            return res.sendStatus(404);
+        }
+
+
+
+        await connection.query(`
+            UPDATE customers
+            SET name=$1, phone=$2, cpf=$3, birthday=$4
+            WHERE id=$5`,
+            [name, phone, cpf, birthday, id]
+        );
+        res.sendStatus(200);
+    } catch(err) {
+        if(
+            err.message.includes("name")
+            || err.message.includes("phone")
+            || err.message.includes("cpf")
+            || err.message.includes("birthday")
+        ) {
+            console.log(err.message);
+            return res.sendStatus(400);
+        }else {
+            console.log(err.message);
+            return res.sendStatus(500);
+        }
+    }
 });
 
 server.listen(4000, () => {

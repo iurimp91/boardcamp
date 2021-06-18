@@ -24,9 +24,54 @@ const connection = new Pool ({
 pg.types.setTypeParser(1082, (str) => str);
 
 server.get("/categories", async (req, res) => {
+    const { limit, offset } = req.query;
+
     try {
-        const result = await connection.query("SELECT * FROM categories");
-        res.send(result.rows);
+        if(limit !== undefined && offset !== undefined) {
+            const result = await connection.query(`
+                SELECT * FROM categories
+                LIMIT $1 OFFSET $2`,
+                [limit, offset]
+            );
+
+            if(result.rows.length === 0) {
+                return res.sendStatus(404);
+            }
+
+            res.send(result.rows);
+        } else if(limit !== undefined) {
+            const result = await connection.query(`
+                SELECT * FROM categories
+                LIMIT $1`,
+                [limit]
+            );
+
+            if(result.rows.length === 0) {
+                return res.sendStatus(404);
+            }
+
+            res.send(result.rows);
+        } else if(offset !== undefined) {
+            const result = await connection.query(`
+                SELECT * FROM categories
+                OFFSET $1`,
+                [offset]
+            );
+
+            if(result.rows.length === 0) {
+                return res.sendStatus(404);
+            }
+
+            res.send(result.rows);
+        } else {
+            const result = await connection.query("SELECT * FROM categories");
+            
+            if(result.rows.length === 0) {
+                return res.sendStatus(404);
+            }
+            res.send(result.rows);
+        }
+        
     } catch(err) {
         console.log(err.message);
         return res.sendStatus(500);
@@ -276,10 +321,6 @@ server.put("/customers/:id", async (req, res) => {
         }
     }
 });
-
-                // SELECT games.*, categories.name AS "categoryName"
-                // FROM games JOIN categories
-                // ON categories.id = games."categoryId"
 
 server.get("/rentals", async (req, res) => {
     const { customerId, gameId } = req.query;

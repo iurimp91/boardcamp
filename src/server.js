@@ -282,24 +282,82 @@ server.put("/customers/:id", async (req, res) => {
                 // ON categories.id = games."categoryId"
 
 server.get("/rentals", async (req, res) => {
-    
-    try {
-        const result = await connection.query(`
-        SELECT rentals.*, customers.* AS customer, games.* AS game
-        FROM rentals
-        JOIN customers ON customers.id = rentals."customerId"
-        JOIN games ON games.id = rentals."gameId" 
-        `
-    );
+    const { customerId, gameId } = req.query;
+    console.log(customerId);
+    console.log(gameId);
 
-    res.send(result.rows);
+    try {
+        if(customerId !== undefined && gameId !== undefined) {
+            const result = await connection.query(`
+                SELECT rentals.*, 
+                jsonb_build_object('name', customers.name, 'id', customers.id) AS customer,
+                jsonb_build_object('id', games.id, 'name', games.name, 'categoryId', games."categoryId", 'categoryName', categories.name) AS game            
+                FROM rentals 
+                JOIN customers ON rentals."customerId" = customers.id
+                JOIN games ON rentals."gameId" = games.id
+                JOIN categories ON categories.id = games."categoryId"
+                WHERE rentals."customerId"=$1 AND rentals."gameId"=$2`,
+                [customerId, gameId]
+            );
+
+            if(result.rows.length === 0) {
+                return res.sendStatus(404);
+            }
+
+            res.send(result.rows);
+        } else if(customerId !== undefined) {
+            const result = await connection.query(`
+                SELECT rentals.*, 
+                jsonb_build_object('name', customers.name, 'id', customers.id) AS customer,
+                jsonb_build_object('id', games.id, 'name', games.name, 'categoryId', games."categoryId", 'categoryName', categories.name) AS game            
+                FROM rentals 
+                JOIN customers ON rentals."customerId" = customers.id
+                JOIN games ON rentals."gameId" = games.id
+                JOIN categories ON categories.id = games."categoryId"
+                WHERE rentals."customerId"=$1`,
+                [customerId]
+            );
+
+            if(result.rows.length === 0) {
+                return res.sendStatus(404);
+            }
+
+            res.send(result.rows);
+        } else if(gameId !== undefined) {
+            const result = await connection.query(`
+                SELECT rentals.*, 
+                jsonb_build_object('name', customers.name, 'id', customers.id) AS customer,
+                jsonb_build_object('id', games.id, 'name', games.name, 'categoryId', games."categoryId", 'categoryName', categories.name) AS game            
+                FROM rentals 
+                JOIN customers ON rentals."customerId" = customers.id
+                JOIN games ON rentals."gameId" = games.id
+                JOIN categories ON categories.id = games."categoryId"
+                WHERE rentals."gameId"=$1`,
+                [gameId]
+            );
+
+            if(result.rows.length === 0) {
+                return res.sendStatus(404);
+            }
+
+            res.send(result.rows);
+        } else {
+            const result = await connection.query(`
+                SELECT rentals.*, 
+                jsonb_build_object('name', customers.name, 'id', customers.id) AS customer,
+                jsonb_build_object('id', games.id, 'name', games.name, 'categoryId', games."categoryId", 'categoryName', categories.name) AS game            
+                FROM rentals 
+                JOIN customers ON rentals."customerId" = customers.id
+                JOIN games ON rentals."gameId" = games.id
+                JOIN categories ON categories.id = games."categoryId"`
+            );
+
+            res.send(result.rows);
+        }
     } catch(err) {
         console.log(err.message);
         return res.sendStatus(500);
     }
-    
-
-
 });
 
 server.post("/rentals", async (req, res) => {

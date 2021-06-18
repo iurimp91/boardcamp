@@ -87,17 +87,17 @@ server.get("/games", async (req, res) => {
     const offsetQuery = "OFFSET " + offset;
 
     const query = `
-        SELECT games.*, categories.name AS "categoryName"
-        FROM games JOIN categories
-        ON categories.id = games."categoryId"
+        SELECT games.*, categories.name AS "categoryName", COUNT(rentals."gameId") AS "rentalsCount"
+        FROM games
+        JOIN categories ON categories.id = games."categoryId"
+        LEFT JOIN rentals ON rentals."gameId" = games.id
         ${name ? nameQuery : ""}
+        GROUP BY games.id, categories.name
         ${order ? orderQuery : ""}
-        ${descQuery}
+        ${order ? descQuery : ""}
         ${limit ? limitQuery : ""}
         ${offset ? offsetQuery : ""}
     `;
-
-    console.log(query)
 
     try {
         const result = await connection.query(query);
@@ -166,12 +166,15 @@ server.get("/customers", async (req, res) => {
     const offsetQuery = "OFFSET " + offset;
 
     const query = `
-        SELECT * FROM customers
+        SELECT customers.*, COUNT(rentals."customerId") AS "rentalsCount"
+        FROM customers
+        LEFT JOIN rentals ON customers.id = rentals."customerId"
         ${cpf ? cpfQuery : ""}
+        GROUP BY customers.id
         ${order ? orderQuery : ""}
-        ${descQuery}
+        ${order ? descQuery : ""}
         ${limit ? limitQuery : ""}
-        ${offset ? offsetQuery : ""}
+        ${offset ? offsetQuery : ""} 
     `;
 
     try {

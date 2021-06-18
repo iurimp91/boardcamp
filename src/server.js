@@ -157,15 +157,19 @@ server.post("/games", async (req, res) => {
 });
 
 server.get("/customers", async (req, res) => {
-    const { cpf, limit, offset } = req.query;
+    const { cpf, order, desc, limit, offset } = req.query;
 
     const cpfQuery = `WHERE cpf LIKE '${cpf}%'`;
+    const orderQuery = `ORDER BY "${order}"`;
+    const descQuery = desc === 'true' ? "DESC" : "";
     const limitQuery = "LIMIT " + limit;
     const offsetQuery = "OFFSET " + offset;
 
     const query = `
         SELECT * FROM customers
         ${cpf ? cpfQuery : ""}
+        ${order ? orderQuery : ""}
+        ${descQuery}
         ${limit ? limitQuery : ""}
         ${offset ? offsetQuery : ""}
     `;
@@ -292,10 +296,12 @@ server.put("/customers/:id", async (req, res) => {
 });
 
 server.get("/rentals", async (req, res) => {
-    const { customerId, gameId, limit, offset } = req.query;
+    const { customerId, gameId, order, desc, limit, offset } = req.query;
 
     const customerQuery = `rentals."customerId"=${customerId}`;
     const gameQuery = `rentals."gameId"=${gameId}`;
+    const orderQuery = `ORDER BY "${order}"`;
+    const descQuery = desc === 'true' ? "DESC" : "";
     const limitQuery = "LIMIT " + limit;
     const offsetQuery = "OFFSET " + offset;
 
@@ -313,6 +319,8 @@ server.get("/rentals", async (req, res) => {
             : (customerId ? `WHERE ${customerQuery}`
             : gameId ? `WHERE ${gameQuery}` : "")
         }
+        ${order ? orderQuery : ""}
+        ${descQuery}
         ${limit ? limitQuery : ""}
         ${offset ? offsetQuery : ""}
     `;

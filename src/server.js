@@ -141,18 +141,17 @@ server.post("/games", async (req, res) => {
         await connection.query('INSERT INTO games (name, image, "stockTotal", "categoryId", "pricePerDay") VALUES ($1, $2, $3, $4, $5)', [name, image, stockTotal, categoryId, pricePerDay]);
         res.sendStatus(201);
     } catch(err) {
-        if(err.message === '"name" is not allowed to be empty') {
+        if(
+            err.message.includes("name")
+            || err.message.includes("stockTotal")
+            || err.message.includes("pricePerDay")
+        ) {
             console.log(err.message);
             return res.sendStatus(400);
-        } else if(err.message === '"stockTotal" must be greater than or equal to 1') {
+        } else {
             console.log(err.message);
-            return res.sendStatus(400);
-        } else if(err.message === '"pricePerDay" must be greater than or equal to 1') {
-            console.log(err.message);
-            return res.sendStatus(400);
-        }
-        console.log(err.message);
         return res.sendStatus(500);
+        }
     }
 });
 
@@ -242,7 +241,7 @@ server.post("/customers", async (req, res) => {
         ) {
             console.log(err.message);
             return res.sendStatus(400);
-        }else {
+        } else {
             console.log(err.message);
             return res.sendStatus(500);
         }
@@ -434,7 +433,6 @@ server.post("/rentals/:id/return", async (req, res) => {
         }
 
         let { rentDate, daysRented, returnDate, originalPrice, delayFee } = result.rows[0];
-        console.log(rentDate, daysRented, returnDate, originalPrice, delayFee);
             
         if(returnDate !== null) {
             return res.sendStatus(400);
@@ -442,22 +440,17 @@ server.post("/rentals/:id/return", async (req, res) => {
         
         const miliSecondsOneDay = 86400000;
         const miliSecondsDaysRented = daysRented * miliSecondsOneDay;
-        console.log(miliSecondsDaysRented);
 
         returnDate = dayjs().format('YYYY-MM-DD');
         const miliSecondsUntilReturn = new Date(returnDate).valueOf() - new Date(rentDate).valueOf();
-        console.log(miliSecondsUntilReturn);
 
         const miliSecondsDifference = miliSecondsDaysRented - miliSecondsUntilReturn; 
-        console.log(miliSecondsDifference);
 
         if(miliSecondsDifference >= 0) {
             delayFee = 0;
         } else {
             const pricePerDay = originalPrice / daysRented;
-            console.log(pricePerDay);
             delayFee = pricePerDay * (-miliSecondsDifference/miliSecondsOneDay);
-            console.log(delayFee);
         }
 
         await connection.query(`

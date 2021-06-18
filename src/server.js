@@ -277,7 +277,28 @@ server.put("/customers/:id", async (req, res) => {
     }
 });
 
+                // SELECT games.*, categories.name AS "categoryName"
+                // FROM games JOIN categories
+                // ON categories.id = games."categoryId"
+
 server.get("/rentals", async (req, res) => {
+    
+    try {
+        const result = await connection.query(`
+        SELECT rentals.*, customers.* AS customer, games.* AS game
+        FROM rentals
+        JOIN customers ON customers.id = rentals."customerId"
+        JOIN games ON games.id = rentals."gameId" 
+        `
+    );
+
+    res.send(result.rows);
+    } catch(err) {
+        console.log(err.message);
+        return res.sendStatus(500);
+    }
+    
+
 
 });
 
@@ -297,18 +318,18 @@ server.post("/rentals", async (req, res) => {
             WHERE id=$1`,
             [gameId]
         );
-        const stockTotal = stockTotalResult.rows[0].stockTotal; 
+        const stockTotal = stockTotalResult.rows[0].stockTotal;
 
         const stockRentedResult = await connection.query(`
             SELECT * FROM rentals
-            WHERE "gameId"=$1`,
+            WHERE "gameId"=$1 AND "returnDate" IS null`,
             [gameId]
         );
         const stockRented = stockRentedResult.rows.length; 
         
         const stockAvailable = stockTotal - stockRented;
         
-        if(stockAvailable === 0) {
+        if(stockAvailable <= 0) {
             return res.sendStatus(400);
         }
 
@@ -323,7 +344,6 @@ server.post("/rentals", async (req, res) => {
             return res.sendStatus(400);
         } else {
             const rentDate = dayjs().format('YYYY-MM-DD');
-            console.log(rentDate);
             const returnDate = null;
             const pricePerDayResult = await connection.query(`
                 SELECT "pricePerDay"
@@ -360,7 +380,58 @@ server.post("/rentals", async (req, res) => {
 });
 
 server.post("/rentals/:id/return", async (req, res) => {
+    const id = parseInt(req.params.id);
 
+    try {
+        const result = await connection.query(`
+            SELECT * FROM rentals
+            WHERE id = $1`,
+            [id]
+        );
+
+        if(result.rows.length === 0) {
+            return res.sendStatus(404);
+        }
+
+        let { rentDate, daysRented, returnDate, originalPrice, delayFee } = result.rows[0];
+        console.log(rentDate, daysRented, returnDate, originalPrice, delayFee);
+            
+        if(returnDate !== null) {
+            return res.sendStatus(400);
+        }
+        
+        const miliSecondsOneDay = 86400000;
+        const miliSecondsDaysRented = daysRented * miliSecondsOneDay;
+        console.log(miliSecondsDaysRented);
+
+        returnDate = dayjs().format('YYYY-MM-DD');
+        const miliSecondsUntilReturn = new Date(returnDate).valueOf() - new Date(rentDate).valueOf();
+        console.log(miliSecondsUntilReturn);
+
+        const miliSecondsDifference = miliSecondsDaysRented - miliSecondsUntilReturn; 
+        console.log(miliSecondsDifference);
+
+        if(miliSecondsDifference >= 0) {
+            delayFee = 0;
+        } else {
+            const pricePerDay = originalPrice / daysRented;
+            console.log(pricePerDay);
+            delayFee = pricePerDay * (-miliSecondsDifference/miliSecondsOneDay);
+            console.log(delayFee);
+        }
+
+        await connection.query(`
+            UPDATE rentals
+            SET "returnDate"=$1, "delayFee"=$2
+            WHERE id=$3`,
+            [returnDate, delayFee, id]
+        );
+
+        res.sendStatus(200);
+    } catch(err) {
+        console.log(err.message);
+        res.sendStatus(500);
+    }
 });
 
 server.delete("/rentals/:id", async (req, res) => {

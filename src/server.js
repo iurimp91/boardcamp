@@ -3,6 +3,7 @@ import cors from "cors";
 import pg from "pg";
 import BaseJoi from "joi";
 import JoiDate from "@hapi/joi-date";
+import dayjs from "dayjs";
 
 const server = express();
 server.use(cors());
@@ -19,6 +20,8 @@ const connection = new Pool ({
     port: 5432,
     database: 'boardcamp'
 });
+
+pg.types.setTypeParser(1082, (str) => str);
 
 server.get("/categories", async (req, res) => {
     try {
@@ -135,7 +138,36 @@ server.post("/games", async (req, res) => {
 });
 
 server.get("/customers", async (req, res) => {
+    const { cpf } = req.query;
+    
+    if(cpf === undefined) {
+        try {
+            const result = await connection.query(`SELECT * FROM customers`);
+            
+            res.send(result.rows);
+        } catch(err) {
+            console.log(err.message);
+            return res.sendStatus(500);
+        }
+    } else {
+        try {
+            const result = await connection.query(`
+                SELECT *
+                FROM customers
+                WHERE cpf LIKE ($1 || '%')`,
+                [cpf]
+            );
 
+            if(result.rows.length === 0) {
+                res.sendStatus(404);
+            } else {
+                res.send(result.rows);
+            }
+        } catch(err) {
+            console.log(err.message);
+            return res.sendStatus(500);
+        }
+    }
 });
 
 server.get("/customers/:id", async (req, res) => {

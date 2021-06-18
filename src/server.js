@@ -139,7 +139,7 @@ server.post("/games", async (req, res) => {
 
 server.get("/customers", async (req, res) => {
     const { cpf } = req.query;
-    
+
     if(cpf === undefined) {
         try {
             const result = await connection.query(`SELECT * FROM customers`);
@@ -159,7 +159,7 @@ server.get("/customers", async (req, res) => {
             );
 
             if(result.rows.length === 0) {
-                res.sendStatus(404);
+                return res.sendStatus(404);
             } else {
                 res.send(result.rows);
             }
@@ -171,7 +171,23 @@ server.get("/customers", async (req, res) => {
 });
 
 server.get("/customers/:id", async (req, res) => {
+    const id = parseInt(req.params.id);
 
+    try {
+        const result = await connection.query(`
+            SELECT * FROM customers WHERE id=$1`,
+            [id]
+        );
+
+        if(result.rows.length === 0) {
+            return res.sendStatus(404);
+        } else {
+            res.send(result.rows[0]);
+        }
+    } catch(err) {
+        console.log(err.message);
+        return res.sendStatus(500);
+    }
 });
 
 server.post("/customers", async (req, res) => {

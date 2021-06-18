@@ -435,7 +435,35 @@ server.post("/rentals/:id/return", async (req, res) => {
 });
 
 server.delete("/rentals/:id", async (req, res) => {
+    const id = parseInt(req.params.id);
 
+    try {
+        const result = await connection.query(`
+            SELECT * FROM rentals
+            WHERE id=$1`,
+            [id]
+        );
+
+        if(result.rows.length === 0) {
+            return res.sendStatus(404);
+        }
+
+        const { returnDate } = result.rows[0];
+        if(returnDate !== null) {
+            res.sendStatus(400);
+        }
+
+        await connection.query(`
+            DELETE FROM rentals
+            WHERE id=$1`,
+            [id]
+        );
+
+        res.sendStatus(200);
+    } catch(err) {
+        console.log(err.message);
+        return res.sendStatus(500);
+    }
 });
 
 server.listen(4000, () => {

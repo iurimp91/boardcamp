@@ -24,54 +24,28 @@ const connection = new Pool ({
 pg.types.setTypeParser(1082, (str) => str);
 
 server.get("/categories", async (req, res) => {
-    const { limit, offset } = req.query;
+    const { order, desc, limit, offset } = req.query;
+
+    const orderQuery = `ORDER BY "${order}"`;
+    const descQuery = desc === 'true' ? "DESC" : "";
+    const limitQuery = "LIMIT " + limit;
+    const offsetQuery = "OFFSET " + offset;
+
+    const query = `SELECT * FROM categories
+        ${order ? orderQuery : ""}
+        ${descQuery}
+        ${limit ? limitQuery : ""}
+        ${offset ? offsetQuery : ""}
+    `;
 
     try {
-        if(limit !== undefined && offset !== undefined) {
-            const result = await connection.query(`
-                SELECT * FROM categories
-                LIMIT $1 OFFSET $2`,
-                [limit, offset]
-            );
+        const result = await connection.query(query);
 
-            if(result.rows.length === 0) {
-                return res.sendStatus(404);
-            }
-
-            res.send(result.rows);
-        } else if(limit !== undefined) {
-            const result = await connection.query(`
-                SELECT * FROM categories
-                LIMIT $1`,
-                [limit]
-            );
-
-            if(result.rows.length === 0) {
-                return res.sendStatus(404);
-            }
-
-            res.send(result.rows);
-        } else if(offset !== undefined) {
-            const result = await connection.query(`
-                SELECT * FROM categories
-                OFFSET $1`,
-                [offset]
-            );
-
-            if(result.rows.length === 0) {
-                return res.sendStatus(404);
-            }
-
-            res.send(result.rows);
+        if(result.rows.length === 0) {
+            return res.sendStatus(404);
         } else {
-            const result = await connection.query("SELECT * FROM categories");
-            
-            if(result.rows.length === 0) {
-                return res.sendStatus(404);
-            }
-            res.send(result.rows);
-        }
-        
+            return res.send(result.rows);
+        } 
     } catch(err) {
         console.log(err.message);
         return res.sendStatus(500);
@@ -104,39 +78,39 @@ server.post("/categories", async (req, res) => {
 });
 
 server.get("/games", async (req, res) => {
-    const { name } = req.query;
+    const { name, order, desc, limit, offset } = req.query;
 
-    if(name === undefined) {
-        try {
-            const result = await connection.query(`
-                SELECT games.*, categories.name AS "categoryName"
-                FROM games JOIN categories
-                ON categories.id = games."categoryId"
-            `);
-            res.send(result.rows);
-        } catch(err) {
-            console.log(err.message);
-            return res.sendStatus(500);
-        }
-    } else {
-        try {
-            const result = await connection.query(`
-                SELECT games.*, categories.name AS "categoryName"
-                FROM games JOIN categories
-                ON categories.id = games."categoryId"
-                WHERE games.name iLIKE ($1 || '%')
-            `, [name]);
+    const nameQuery = `WHERE games.name iLIKE '${name}%'`;
+    const orderQuery = `ORDER BY "${order}"`;
+    const descQuery = desc === 'true' ? "DESC" : "";
+    const limitQuery = "LIMIT " + limit;
+    const offsetQuery = "OFFSET " + offset;
 
-            if(result.rows.length === 0) {
-                res.sendStatus(404);
-            } else {
-                res.send(result.rows);
-            }
-        } catch(err) {
-            console.log(err.message);
-            return res.sendStatus(500);
-        }
-    }  
+    const query = `
+        SELECT games.*, categories.name AS "categoryName"
+        FROM games JOIN categories
+        ON categories.id = games."categoryId"
+        ${name ? nameQuery : ""}
+        ${order ? orderQuery : ""}
+        ${descQuery}
+        ${limit ? limitQuery : ""}
+        ${offset ? offsetQuery : ""}
+    `;
+
+    console.log(query)
+
+    try {
+        const result = await connection.query(query);
+
+        if(result.rows.length === 0) {
+            return res.sendStatus(404);
+        } else {
+            return res.send(result.rows);
+        } 
+    } catch(err) {
+        console.log(err.message);
+        return res.sendStatus(500);
+    }
 });
 
 server.post("/games", async (req, res) => {
@@ -183,35 +157,30 @@ server.post("/games", async (req, res) => {
 });
 
 server.get("/customers", async (req, res) => {
-    const { cpf } = req.query;
+    const { cpf, limit, offset } = req.query;
 
-    if(cpf === undefined) {
-        try {
-            const result = await connection.query(`SELECT * FROM customers`);
-            
-            res.send(result.rows);
-        } catch(err) {
-            console.log(err.message);
-            return res.sendStatus(500);
-        }
-    } else {
-        try {
-            const result = await connection.query(`
-                SELECT *
-                FROM customers
-                WHERE cpf LIKE ($1 || '%')`,
-                [cpf]
-            );
+    const cpfQuery = `WHERE cpf LIKE '${cpf}%'`;
+    const limitQuery = "LIMIT " + limit;
+    const offsetQuery = "OFFSET " + offset;
 
-            if(result.rows.length === 0) {
-                return res.sendStatus(404);
-            } else {
-                res.send(result.rows);
-            }
-        } catch(err) {
-            console.log(err.message);
-            return res.sendStatus(500);
-        }
+    const query = `
+        SELECT * FROM customers
+        ${cpf ? cpfQuery : ""}
+        ${limit ? limitQuery : ""}
+        ${offset ? offsetQuery : ""}
+    `;
+
+    try {
+        const result = await connection.query(query);
+
+        if(result.rows.length === 0) {
+            return res.sendStatus(404);
+        } else {
+            return res.send(result.rows);
+        } 
+    } catch(err) {
+        console.log(err.message);
+        return res.sendStatus(500);
     }
 });
 
@@ -323,78 +292,39 @@ server.put("/customers/:id", async (req, res) => {
 });
 
 server.get("/rentals", async (req, res) => {
-    const { customerId, gameId } = req.query;
-    console.log(customerId);
-    console.log(gameId);
+    const { customerId, gameId, limit, offset } = req.query;
+
+    const customerQuery = `rentals."customerId"=${customerId}`;
+    const gameQuery = `rentals."gameId"=${gameId}`;
+    const limitQuery = "LIMIT " + limit;
+    const offsetQuery = "OFFSET " + offset;
+
+    const query = `
+        SELECT rentals.*, 
+        jsonb_build_object('name', customers.name, 'id', customers.id) AS customer,
+        jsonb_build_object('id', games.id, 'name', games.name, 'categoryId', games."categoryId", 'categoryName', categories.name) AS game            
+        FROM rentals 
+        JOIN customers ON rentals."customerId" = customers.id
+        JOIN games ON rentals."gameId" = games.id
+        JOIN categories ON categories.id = games."categoryId"
+        ${
+            customerId && gameId
+            ? `WHERE ${customerQuery} AND ${gameQuery}`
+            : (customerId ? `WHERE ${customerQuery}`
+            : gameId ? `WHERE ${gameQuery}` : "")
+        }
+        ${limit ? limitQuery : ""}
+        ${offset ? offsetQuery : ""}
+    `;
 
     try {
-        if(customerId !== undefined && gameId !== undefined) {
-            const result = await connection.query(`
-                SELECT rentals.*, 
-                jsonb_build_object('name', customers.name, 'id', customers.id) AS customer,
-                jsonb_build_object('id', games.id, 'name', games.name, 'categoryId', games."categoryId", 'categoryName', categories.name) AS game            
-                FROM rentals 
-                JOIN customers ON rentals."customerId" = customers.id
-                JOIN games ON rentals."gameId" = games.id
-                JOIN categories ON categories.id = games."categoryId"
-                WHERE rentals."customerId"=$1 AND rentals."gameId"=$2`,
-                [customerId, gameId]
-            );
+        const result = await connection.query(query);
 
-            if(result.rows.length === 0) {
-                return res.sendStatus(404);
-            }
-
-            res.send(result.rows);
-        } else if(customerId !== undefined) {
-            const result = await connection.query(`
-                SELECT rentals.*, 
-                jsonb_build_object('name', customers.name, 'id', customers.id) AS customer,
-                jsonb_build_object('id', games.id, 'name', games.name, 'categoryId', games."categoryId", 'categoryName', categories.name) AS game            
-                FROM rentals 
-                JOIN customers ON rentals."customerId" = customers.id
-                JOIN games ON rentals."gameId" = games.id
-                JOIN categories ON categories.id = games."categoryId"
-                WHERE rentals."customerId"=$1`,
-                [customerId]
-            );
-
-            if(result.rows.length === 0) {
-                return res.sendStatus(404);
-            }
-
-            res.send(result.rows);
-        } else if(gameId !== undefined) {
-            const result = await connection.query(`
-                SELECT rentals.*, 
-                jsonb_build_object('name', customers.name, 'id', customers.id) AS customer,
-                jsonb_build_object('id', games.id, 'name', games.name, 'categoryId', games."categoryId", 'categoryName', categories.name) AS game            
-                FROM rentals 
-                JOIN customers ON rentals."customerId" = customers.id
-                JOIN games ON rentals."gameId" = games.id
-                JOIN categories ON categories.id = games."categoryId"
-                WHERE rentals."gameId"=$1`,
-                [gameId]
-            );
-
-            if(result.rows.length === 0) {
-                return res.sendStatus(404);
-            }
-
-            res.send(result.rows);
+        if(result.rows.length === 0) {
+            return res.sendStatus(404);
         } else {
-            const result = await connection.query(`
-                SELECT rentals.*, 
-                jsonb_build_object('name', customers.name, 'id', customers.id) AS customer,
-                jsonb_build_object('id', games.id, 'name', games.name, 'categoryId', games."categoryId", 'categoryName', categories.name) AS game            
-                FROM rentals 
-                JOIN customers ON rentals."customerId" = customers.id
-                JOIN games ON rentals."gameId" = games.id
-                JOIN categories ON categories.id = games."categoryId"`
-            );
-
-            res.send(result.rows);
-        }
+            return res.send(result.rows);
+        } 
     } catch(err) {
         console.log(err.message);
         return res.sendStatus(500);
